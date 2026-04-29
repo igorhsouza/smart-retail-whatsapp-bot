@@ -1,0 +1,1601 @@
+{
+  "name": "Customer Service WhatsApp Bot - Safe Template",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://YOUR_WAHA_URL/api/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wahaApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chatId",
+              "value": "={{ $('Webhook (WhatsApp)1').item.json.body.payload.from.toString()}}"
+            },
+            {
+              "name": "limit",
+              "value": "1"
+            },
+            {
+              "name": "downloadMedia",
+              "value": "false"
+            },
+            {
+              "name": "session",
+              "value": "default"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3248,
+        368
+      ],
+      "name": "Checagem de mensagem"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload._data.type }}",
+              "rightValue": "document",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            },
+            {
+              "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload._data.type }}",
+              "rightValue": "image",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1840,
+        352
+      ],
+      "name": "IMAGEM?"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Webhook (WhatsApp)1').first().json.body?.payload?.media?.url ? $('Webhook (WhatsApp)1').first().json.body.payload.media.url.replace(/https?:\\/\\/[^\\/]+/, 'https://YOUR_WAHA_URL') : '' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wahaApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2144,
+        -112
+      ],
+      "name": "Baixar imagem"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url_escolhida }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "User-Agent",
+              "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4016,
+        -80
+      ],
+      "name": "Ler Todas Paginas"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "waha",
+        "options": {}
+      },
+      "name": "Webhook (WhatsApp)1",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        320,
+        -336
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $('AI Agent1').first().json.output }}",
+              "operation": "contains",
+              "value2": "##ESCALAR##"
+            }
+          ]
+        }
+      },
+      "name": "Precisa de Humano?1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        3936,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=DATA E HORA ATUAL:\n{{ new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }) }}\n\nHISTÓRICO DA CONVERSA (Ordem cronológica):\n{{ $('BUSCAR HISTÓRICO1').all().slice(-6).map(item => (item.json.fromMe ? 'BOT: ' : 'CLIENTE: ') + item.json.body).join('\\n') }}\n\nMENSAGEM DO CLIENTE:\n{{ $json.input_atual }}\n\nContexto: {{ $json.contexto_site }}\n\nHistórico: {{ $json.chat_history }}",
+        "options": {
+          "systemMessage": "=IDENTIDADE:assistente virtual do YOUR_STORE_NAME. Masculino, educado e pode usar emojis pontualmente. Seu objetivo é informar e direcionar para o site/app. Você não tem autonomia para fechar vendas, separar produtos ou negociar ou ver preços.\n\nINPUTS:\n\nContexto: {{ $json.contexto_site }}\n\nHistórico: {{ $json.chat_history }}\n\nHISTÓRICO: {{ $('BUSCAR HISTÓRICO1').all().slice(-6).map(item => (item.json.fromMe ? 'BOT: ' : 'CLIENTE: ') + item.json.body).join('\\n') }}\n\nMENSAGEM ATUAL: {{ $json.input_atual }}\n\n🛡️ PROTOCOLO DE FILTROS (ORDEM DE PRIORIDADE)\n1. FILTRO DE MONOSSÍLABOS (##SILENCIO##):\n\nSe a MENSAGEM ATUAL for apenas um agradecimento, confirmação ou reação (ex: \"ok\", \"obrigado\", \"show\", \"tá\", \"entendi\", \"kkk\", \"👍\"), responda UNICAMENTE com: ##SILENCIO##.\n\n2. FILTRO DE ESCALAÇÃO (##ESCALAR##): Responda UNICAMENTE com ##ESCALAR## se o cliente solicitar:\n\nReclamações, trocas, falar com gerente/humano.\n\nPedidos no atacado ou grandes volumes.\n\nAlterar/Cancelar pedido já realizado.\n\nSolicitar orçamentos manuais ou Chave PIX.\n\nReserva de produtos: Se o cliente disser \"separa pra mim\", \"deixa guardado\", \"prepara aí\".\n\nTeimosia: Se o cliente insistir que não quer usar o site/app.\n\n3. FILTRO DE PREÇOS (PROIBIDO INVENTAR):\n\nREGRA DE OURO: Você só informa preços que estejam EXPLICITAMENTE listados no campo CONTEXTO DE PREÇOS.\n\nSe o produto não estiver lá: NÃO ESCALE. Em vez disso, diga: \"Não consigo visualizar o preço exato deste item agora, mas você pode conferir a disponibilidade e o valor em tempo real no nosso site: https://YOUR_STORE_URL/loja-01\"\n\n🥩 REGRAS OPERACIONAIS\nKITS: Link (https://YOUR_STORE_URL/loja-01/kits-100). Mínimo 1h de antecedência. PROIBIDO trocar itens. os kits começar A PARTIR DE 69,99\n\nfrete do DELIVERY: R$ 8. O valor minimo pra entrega é 100r$ em compras.\nNÃO ENTREGAMOS AOS SABADOS E DOMINGOS, mas a loja abre.\nO delivery é de segunda à sexta.\n\nFLORIANÓPOLIS: Não entregamos. Sugira Uber Flash por conta e risco do cliente.\nYOUR_NEIGHBORHOOD_1 também não.\nYOUR_NEIGHBORHOOD_2 também não.\nYOUR_CITY_2 somente próximo a YOUR_DELIVERY_REGION e região.\nPAGAMENTOS (REGRAS CRÍTICAS):\n\n💳 REGRAS DE PAGAMENTO (LEITURA OBRIGATÓRIA)\n1. O QUE NÃO ACEITAMOS (PROIBIDO):\n\nNÃO ACEITAMOS VALE REFEIÇÃO (VR) de nenhuma marca (Sodexo, Alelo, Ticket, etc).\n\nO cartão de \"lanche/restaurante\" NÃO PASSA no nosso sistema.\n\nSe o cliente perguntar de VR, responda: \"Infelizmente não aceitamos o cartão Refeição (VR), apenas o Alimentação (VA).\"\n\n2. CARTÕES DE BENEFÍCIO ACEITOS (SOMENTE ALIMENTAÇÃO):\n\nAceitamos APENAS Vale Alimentação (VA) das bandeiras: Sodexo, Ticket e Alelo.\n\n(Lembrando: Bebidas alcoólicas e cigarros não podem ser pagos com VA).\n\n3. OUTRAS FORMAS DE PAGAMENTO:\n\nPix, Dinheiro, Cartão de Débito e Crédito (incluindo aproximação).\nRESTRIÇÃO LEGAL: Bebidas alcoólicas e cigarros JAMAIS podem ser pagos com Vale-Refeição/Alimentação.\n\nVAGAS: Enviar currículo em PDF por aqui ou entregar no balcão.\n\n📍 LOCALIZAÇÃO E SEGURANÇA\nLoja 1: https://share.google/YOUR_MAPS_LINK_STORE_1 \nLoja 2: https://share.google/YOUR_MAPS_LINK_STORE_2\n\nse o cliente mencionar Horários: Seg-Sáb 08h-21h | Domingo 08h-13h.\n\nEndereço Uber: YOUR_STORE_ADDRESS.\n\nANTI-GOLPE: Se mencionarem sorteios/códigos, alerte imediatamente sobre fraude e que se houver algum sorteio ele estará acontecendo no instagram oficial instagram.com/YOUR_STORE_PROFILE .\n\n✍️ FORMATO DE RESPOSTA\nNunca use \"Acho que\", \"Talvez\". Seja assertivo.\n\nSe o cliente perguntar de Carnes/Churrasco: Termine com \"Ah, e se precisar de carvão, sal grosso ou bebidas geladas, temos tudo aqui para o seu churrasco!\" se for dar alguma dica não invente informações exemplo: carne moida bovina ser boa pra estrogonoffe, isso é mentira.\n\nPAGAMENTOS/RESERVAS: Se o cliente tentar combinar o pagamento por aqui (ex: \"vou pagar no PIX agora\"), responda que o pagamento é feito na entrega ou retirada e use ##ESCALAR## para que um humano valide.\n\nSE O CLIENTE FALOU QUE VEIO DO INSTAGRAM, DE AS BOAS VINDAS, FALE DOS NOSSOS KITS E QUE TEMOS UM APP DE VANTAGENS E PROMOÇÕES TODOS OS DIAS. O APP É O YOUR_LOYALTY_APP.\n\nVaga de açogueiro e/ou outras: Peça curriculo e caso a pessoa tenha duvidas responda apenas que será avaliado o curriculo e o responsável irá entrar em contato caso tenha uma proposta.\n\nCUPONS: o único cupom disponível no momento é o YOUR_COUPON_CODE apenas na primeira compra no site. Recomende que o cliente fique ligado no nosso instagram para mais promoções @YOUR_STORE_PROFILE\n\nDIAS DE PROMOÇÃO: Terça e Quinta = Hortifruti  \nQuarta e aos fins de semana são os dias da carne. Porém temos promoções todos os dias na loja, cliente clube sempre terá descontos. (não reptida este texto, ele é sua base de conhecimento, formate a frase como preferir, sem inventar informações)\n\nATENÇÃO: Sexta-feira santa dia 03/04 iremos operar das 08:00 até as 20:00. Não feremos delivery nesta sexta, mas a loja irá abrir.\n\nno dia 05/04 Deseje Feliz Pascoa ao terminar os dialogos com os clientes."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        3552,
+        160
+      ],
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "=default",
+        "chatId": "=55XXXXXXXXXXX@c.us",
+        "reply_to": "=",
+        "text": "=🚨 Mensagem necessita de atenção!\n📱 Quem: {{ $('Webhook (WhatsApp)1').first().json.body.payload._data.notifyName }}\n💬 Disse: {{ $('Webhook (WhatsApp)1').first().json.body.payload.body || \"Enviou uma imagem\" }}\n\nLink: https://wa.me/{{ $('Webhook (WhatsApp)1').item.json.body.payload.from }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        4368,
+        160
+      ],
+      "name": "Envia mensagem pro responsável1"
+    },
+    {
+      "parameters": {
+        "resource": "Chatting",
+        "operation": "Send Text",
+        "session": "=default",
+        "chatId": "={{ $('Webhook (WhatsApp)1').first().json.body.payload.from }}",
+        "text": "={{ $('AI Agent1').first().json.output }}",
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-waha.WAHA",
+      "typeVersion": 202411,
+      "position": [
+        4160,
+        384
+      ],
+      "name": "Responde o Cliente1"
+    },
+    {
+      "parameters": {
+        "url": "https://YOUR_WAHA_URL/api/messages",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wahaApi",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "chatId",
+              "value": "={{ $('Webhook (WhatsApp)1').item.json.body.payload.from.toString()}}"
+            },
+            {
+              "name": "limit",
+              "value": "5"
+            },
+            {
+              "name": "downloadMedia",
+              "value": "false"
+            },
+            {
+              "name": "session",
+              "value": "default"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        3552,
+        -336
+      ],
+      "name": "BUSCAR HISTÓRICO1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. CAPTURA DOS DADOS (COM TRAVA DE SEGURANÇA)\nconst inputAnterior = $json;\nconst html = $input.all().map(i => i.json.data || i.json.body || \"\").join(\" \");\n\n// Busca a mensagem direto do Webhook para evitar o erro de 'undefined'\nconst msgOriginal = $('Webhook (WhatsApp)1').first().json.body.payload.body || \"\";\nconst pularBusca = inputAnterior.pular_busca_precos || false;\n\n// 2. SE FOR APENAS CONVERSA, PARA AQUI (ECONOMIA DE TOKENS)\nif (pularBusca) {\n    return {\n        json: {\n            contexto_site: \"Nenhum preço necessário.\",\n            input_atual: msgOriginal,\n            link_loja: inputAnterior.url_cliente || \"https://YOUR_STORE_URL\",\n            chat_history: $('BUSCAR HISTÓRICO1').all().slice(-5).map(item => (item.json.fromMe ? 'BOT: ' : 'CLIENTE: ') + item.json.body).join('\\n')\n        }\n    };\n}\n\n// 3. LIMPEZA DO HTML\nlet textoLimpo = html\n    .replace(/<style[\\s\\S]*?<\\/style>/gi, \"\") \n    .replace(/<script[\\s\\S]*?<\\/script>/gi, \"\") \n    .replace(/(<\\/div>|<\\/li>|<\\/p>|<br>|<\\/h[1-6]>|<\\/span>|<\\/a>)/gi, \"\\n\")\n    .replace(/<[^>]+>/g, \" \") \n    .replace(/[ \\t]+/g, \" \") \n    .trim();\n\nlet linhas = textoLimpo.split(\"\\n\").map(l => l.trim()).filter(l => l.length > 0);\nlet produtosMontados = [];\n\nfor (let i = 0; i < linhas.length; i++) {\n    if (linhas[i].match(/R\\$\\s*[\\d,.]+/)) {\n        let preco = linhas[i];\n        let nomeProduto = \"\";\n        for (let j = i + 1; j <= i + 3 && j < linhas.length; j++) {\n            if (!linhas[j].match(/R\\$\\s*/) && !linhas[j].match(/%|OFF|ECONOMIZE/i) && linhas[j].length > 3) {\n                nomeProduto = linhas[j];\n                break;\n            }\n        }\n        if (nomeProduto) {\n            produtosMontados.push(`[PRODUTO]: ${nomeProduto} | [VALOR]: ${preco}`);\n        }\n    }\n}\n\n// 4. FILTRO DE RELEVÂNCIA (O QUE REALMENTE ECONOMIZA TOKENS)\nconst buscaTermo = msgOriginal.toLowerCase();\nconst palavrasChave = buscaTermo.split(' ').filter(p => p.length > 3);\n\nconst filtrados = produtosMontados.filter(p => \n    palavrasChave.some(palavra => p.toLowerCase().includes(palavra))\n);\n\n// Se achou o que o cliente queria, manda os 5 primeiros. Se não, manda 3 ofertas gerais.\nconst contextoFinal = filtrados.length > 0 ? filtrados.slice(0, 5) : produtosMontados.slice(0, 3);\n\nreturn {\n    json: {\n        contexto_site: contextoFinal.join('\\n'),\n        input_atual: msgOriginal,\n        link_loja: inputAnterior.url_cliente || \"https://YOUR_STORE_URL\",\n        // LIMITADOR DE HISTÓRICO (Corte de 5 mensagens para economizar)\n        chat_history: $('BUSCAR HISTÓRICO1').all().slice(-5).map(item => (item.json.fromMe ? 'BOT: ' : 'CLIENTE: ') + item.json.body).join('\\n')\n    }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        4160,
+        -80
+      ],
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {
+          "topP": 0.5
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        3552,
+        384
+      ],
+      "name": "OpenAI Chat Model1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_URL/rest/v1/bot_status",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $('Webhook (WhatsApp)1').first().json.body.payload.from }}\",\n  \"is_active\": false\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        4160,
+        160
+      ],
+      "name": "HTTP Request2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "bot_status",
+        "filterType": "=string",
+        "filterString": "=chat_id=eq.{{ $('Webhook (WhatsApp)1').item.json.body.payload.from }}",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "is_active",
+              "fieldValue": "true"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        4368,
+        384
+      ],
+      "name": "Update a row1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload._data.type }}",
+              "rightValue": "ptt",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1728,
+        -320
+      ],
+      "name": "É AUDIO?1"
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        3040,
+        -336
+      ],
+      "name": "Transcribe a recording1"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "={\n  \"body\": \"{{ $json.text }}\"\n}",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        3248,
+        -336
+      ],
+      "name": "substituir audio por texto1"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": [\n        {\n          \"type\": \"text\",\n          \"text\": \"Analise este arquivo/imagem. Classifique-o OBRIGATORIAMENTE em uma destas categorias: CURRICULO, NOTA_FISCAL, PEDIDO, OUTROS. Responda apenas o NOME DA CATEGORIA.\"\n        },\n        {\n          \"type\": \"image_url\",\n          \"image_url\": {\n            \"url\": \"data:{{ $json.mimeType }};base64,{{ $json.base64Image }}\"\n          }\n        }\n      ]\n    }\n  ],\n  \"max_tokens\": 100\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2624,
+        -224
+      ],
+      "name": "HTTP Request3"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('AI Agent1').first().json.output }}",
+              "rightValue": "##SILENCIO##",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        3936,
+        400
+      ],
+      "name": "Responder ou Finalizar1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. CAPTURA A RESPOSTA DA IA\nconst item = $input.first().json;\nconst respostaIA = item.content?.[0]?.text || item.message?.content || \"\";\n\n// 2. CONVERTE O TEXTO EM OBJETO\nlet decisao;\ntry {\n    const jsonLimpo = respostaIA.replace(/```json|```/g, '').trim();\n    decisao = JSON.parse(jsonLimpo);\n} catch (e) {\n    decisao = { categoria: \"OUTROS\", termo_busca: \"\" };\n}\n\nconst categoriaIA = decisao.categoria || \"OUTROS\";\nconst termo = (decisao.termo_busca || \"\").trim().toLowerCase();\n\n// 3. MAPA DE URLs POR SETOR\nconst mapaUrls = {\n    \"ACOGUE\": \"https://YOUR_STORE_URL/loja-01/acougue-14\",\n    \"BEBIDAS\": \"https://YOUR_STORE_URL/loja-01/bebidas-6\",\n    \"KITS\": \"https://YOUR_STORE_URL/loja-01/kits-100\",\n    \"PADARIA\": \"https://YOUR_STORE_URL/loja-01/padaria-13\",\n    \"HORTI\": \"https://YOUR_STORE_URL/loja-01/hortifruti-10\",\n    \"PERECIVEIS\": \"https://YOUR_STORE_URL/loja-01/frios-e-laticinios-4\",\n    \"LIMPEZA\": \"https://YOUR_STORE_URL/loja-01/higiene-e-limpeza-8\",\n    \"OFERTAS\": \"https://YOUR_STORE_URL/loja-01/ofertas-clube\"\n};\n\nconst regrasDeOuro = [\n    { gatilhos: [\"kit\", \"kiti\", \"combo\", \"cestas\", \"festa\", \"quite\", \"quit\"], setor: \"KITS\" },\n    { gatilhos: [\"carne\", \"costela\", \"picanha\", \"kg\", \"churrasco\", \"bovina\", \"suina\", \"acem\", \"linguica\", \"moida\"], setor: \"ACOGUE\" },\n    { gatilhos: [\"bebida\", \"cerveja\", \"refri\", \"suco\", \"agua\", \"coca\"], setor: \"BEBIDAS\" },\n    { gatilhos: [\"pao\", \"padaria\", \"bolo\", \"salgado\", \"tortas\"], setor: \"PADARIA\" },\n    { gatilhos: [\"fruta\", \"verdura\", \"legume\", \"horti\", \"batata\", \"tomate\", \"cebola\"], setor: \"HORTI\" },\n    { gatilhos: [\"leite\", \"queijo\", \"manteiga\", \"iogurte\", \"frios\"], setor: \"PERECIVEIS\" }\n];\n\nconst gatilhosBloqueio = [\"cpf\", \"rg\", \"pis\", \"carteira\", \"emprego\", \"vaga\", \"curriculo\"];\n\nlet urlFinal = \"\";\nlet modo = \"BUSCA_ESPECIFICA\";\nlet setoresEncontrados = new Set();\nlet bloqueioRH = false;\n\n// Checagem de RH/Vagas\nif (gatilhosBloqueio.some(g => termo.includes(g))) {\n    bloqueioRH = true;\n}\n\nif (!bloqueioRH) {\n    for (const regra of regrasDeOuro) {\n        if (regra.gatilhos.some(g => termo.includes(g))) {\n            setoresEncontrados.add(regra.setor);\n        }\n    }\n}\n\nconst categoriasSemBusca = [\"RECLAMACAO\", \"INSTA\", \"DUVIDA_GERAL\", \"INSTITUCIONAL\", \"OUTROS\"];\n\n// Lógica de Direcionamento\nif (bloqueioRH || (categoriasSemBusca.includes(categoriaIA) && termo === \"\" && setoresEncontrados.size === 0)) {\n    modo = \"APENAS_CONVERSA\";\n    urlFinal = \"https://YOUR_STORE_URL\"; \n} \nelse if (setoresEncontrados.size > 1) {\n    modo = \"PEDIDO_COMPLEXO\";\n    urlFinal = \"https://YOUR_STORE_URL\";\n}\nelse if (setoresEncontrados.size === 1) {\n    const setorUnico = [...setoresEncontrados][0];\n    urlFinal = mapaUrls[setorUnico];\n    modo = \"VITRINE_SETOR\";\n}\nelse if (mapaUrls[categoriaIA]) {\n    if (termo.length > 3) {\n        urlFinal = `https://YOUR_STORE_URL/loja-01/busca?q=${encodeURIComponent(termo)}`;\n    } else {\n        urlFinal = mapaUrls[categoriaIA];\n        modo = \"VITRINE_SETOR\";\n    }\n} else {\n    urlFinal = `https://YOUR_STORE_URL/loja-01/busca?q=${encodeURIComponent(termo)}`;\n}\n\n// RETORNO OTIMIZADO\nreturn { \n    url_escolhida: urlFinal, \n    url_cliente: urlFinal,       \n    termo_buscado: termo,\n    input_atual: $('Webhook (WhatsApp)1').first().json.body.payload.body, \n    categoria_ia: setoresEncontrados.size > 0 ? \"MIX_PRODUTOS\" : categoriaIA,\n    modo_operacao: modo,\n    // Se for apenas conversa, você pode usar esse campo em um nó IF \n    // adiante para pular a raspagem de preços e economizar tokens.\n    pular_busca_precos: (modo === \"APENAS_CONVERSA\" || bloqueioRH) ? true : false\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3856,
+        -80
+      ],
+      "name": "Definir Setor1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "responses": {
+          "values": [
+            {
+              "content": "={{$('Webhook (WhatsApp)1').first().json.body.payload.body }}"
+            },
+            {
+              "role": "system",
+              "content": "AÇOUGUE: Carnes bovinas, suínas, aves, espetinhos e itens de churrasco.\n\nKITS: Combos prontos ou \"Kits Semanais\".\n\nHORTI/PADARIA/BEBIDAS/PERECIVEIS/LIMPEZA: Categorias padrão de supermercado.\n\nINSTITUCIONAL: Dúvidas sobre horário, endereço, vagas de emprego, formas de pagamento ou saudações (Oi/Tchau).\n\nRECLAMACAO: Críticas, problemas com pedidos ou insatisfação.\n\nOFERTAS: Quando o cliente pede \"lista\", \"encarte\", \"ver tudo\" ou \"promoções\".\n\nLÓGICA DO TERMO DE BUSCA:\n\nExtraia apenas a palavra-chave essencial (Ex: Cliente diz \"Quanto tá o coxão mole?\" -> termo_busca: \"Coxão Mole\").\n\nSe o cliente for vago (\"E o de frango?\"), use o histórico para manter o contexto (Ex: termo_busca: \"Kit Frango\").\n\nSe for INSTITUCIONAL, RECLAMACAO ou SAUDAÇÃO, o termo_busca deve ser obrigatoriamente \"\" (vazio).\n\nSe for OFERTAS, o termo_busca deve ser \"todos\"."
+            }
+          ]
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 2.1,
+      "position": [
+        3552,
+        -80
+      ],
+      "name": "Message a model"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload.id }}",
+              "rightValue": "={{ $json.last_message_id }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload.id }}",
+              "rightValue": "={{ $node[\"Get a row\"].json[\"last_message_id\"] }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1264,
+        -32
+      ],
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Webhook (WhatsApp)1').first().json.body.payload.from }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        3680,
+        384
+      ],
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.choices[0].message.content.replace(/[^a-zA-Z_]/g, \"\").trim().toUpperCase() }}",
+                    "rightValue": "CURRICULO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.choices[0].message.content.replace(/[^a-zA-Z_]/g, \"\").trim().toUpperCase() }}",
+                    "rightValue": "NOTA_FISCAL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.choices[0].message.content.replace(/[^a-zA-Z_]/g, \"\").trim().toUpperCase() }}",
+                    "rightValue": "PEDIDO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.choices[0].message.content.replace(/[^a-zA-Z_]/g, \"\").trim().toUpperCase() }}",
+                    "rightValue": "OUTROS",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        3056,
+        -32
+      ],
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "name": "={{ $now.format('yyyy-MM-dd_HH-mm') }}_cliente_{{ $('Webhook (WhatsApp)1').item.json.body.payload.from.split('@')[0] }}.pdf",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_FOLDER_NAME",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3248,
+        -208
+      ],
+      "name": "Upload file"
+    },
+    {
+      "parameters": {
+        "name": "={{ $now.format('yyyy-MM-dd_HH-mm') }}_cliente_{{ $('Webhook (WhatsApp)1').item.json.body.payload.from.split('@')[0] }}.pdf",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_FOLDER_NAME",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3248,
+        80
+      ],
+      "name": "Upload file1"
+    },
+    {
+      "parameters": {
+        "name": "={{ $now.format('yyyy-MM-dd_HH-mm') }}_cliente_{{ $('Webhook (WhatsApp)1').item.json.body.payload.from.split('@')[0] }}.pdf",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_FOLDER_NAME",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3248,
+        -64
+      ],
+      "name": "Upload file2"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload._data.type }}",
+                    "rightValue": "image",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload._data.type }}",
+                    "rightValue": "document",
+                    "operator": {
+                      "type": "string",
+                      "operation": "contains"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        1952,
+        -32
+      ],
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "url": "={{ $('Webhook (WhatsApp)1').first().json.body?.payload?.media?.url ? $('Webhook (WhatsApp)1').first().json.body.payload.media.url.replace(/https?:\\/\\/[^\\/]+/, 'https://YOUR_WAHA_URL') : '' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "wahaApi",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2336,
+        128
+      ],
+      "name": "Baixar pdf"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        2512,
+        208
+      ],
+      "name": "Extract from File"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{\n{\n  \"model\": \"gpt-4o-mini\",\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"Responda APENAS com uma dessas palavras: CURRICULO, NOTA_FISCAL, PEDIDO ou OUTROS. Proibido usar pontos ou explicações.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"TEXTO: \" + ($json.text ? $json.text.substring(0, 2000).replace(/\"/g, \"'\").replace(/\\n/g, \" \") : \"VAZIO\")\n    }\n  ],\n  \"max_tokens\": 50,\n  \"temperature\": 0\n}\n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2640,
+        208
+      ],
+      "name": "HTTP Request pdf"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $('Webhook (WhatsApp)1').first().json.body.payload.id }}",
+              "rightValue": "=status@broadcast",
+              "operator": {
+                "type": "string",
+                "operation": "notContains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1552,
+        -320
+      ],
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2144,
+        48
+      ],
+      "name": "Wait"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2880,
+        144
+      ],
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "name": "={{ $now.format('yyyy-MM-dd_HH-mm') }}_cliente_{{ $('Webhook (WhatsApp)1').item.json.body.payload.from.split('@')[0] }}.pdf",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "YOUR_FOLDER_NAME",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        3248,
+        208
+      ],
+      "name": "Upload file3"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "bot_status",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "keyValue": "={{ $('Webhook (WhatsApp)1').item.json.body.payload.from }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1392,
+        -320
+      ],
+      "name": "Busca Status e Memória1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        3872,
+        -336
+      ],
+      "name": "Limit"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        992,
+        -48
+      ],
+      "name": "Wait1"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "tableId": "bot_status",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "chat_id",
+              "keyValue": "={{ $('Webhook (WhatsApp)1').item.json.body.payload.from }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1136,
+        -48
+      ],
+      "name": "Get a row",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://YOUR_SUPABASE_URL/rest/v1/bot_status",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"chat_id\": \"{{ $('Webhook (WhatsApp)1').item.json.body.payload.from }}\",\n  \"last_message_id\": \"{{ $('Webhook (WhatsApp)1').item.json.body.payload.id }}\",\n  \"is_active\": true,\n  \"updated_at\": \"{{ $now }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        928,
+        -352
+      ],
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "const binaryData = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst base64 = binaryData.toString('base64');\n\n// Mantemos o que você precisa (Base64) mas preservamos o binário original\nreturn {\n  json: {\n    base64Image: base64,\n    mimeType: items[0].binary.data.mimeType\n  },\n  binary: items[0].binary // ISSO AQUI garante que o arquivo 'data' continue existindo\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2336,
+        -224
+      ],
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        2880,
+        -128
+      ],
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "tableId": "webhook_travas",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "message_id",
+              "fieldValue": "={{ $('Webhook (WhatsApp)1').item.json.body.payload.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        704,
+        -336
+      ],
+      "name": "Create a row",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        528,
+        -336
+      ],
+      "name": "Wait2"
+    }
+  ],
+  "connections": {
+    "Checagem de mensagem": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR HISTÓRICO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMAGEM?": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Checagem de mensagem",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar imagem": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Ler Todas Paginas": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook (WhatsApp)1": {
+      "main": [
+        [
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precisa de Humano?1": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder ou Finalizar1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Precisa de Humano?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envia mensagem pro responsável1": {
+      "main": [
+        [
+          {
+            "node": "Update a row1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "BUSCAR HISTÓRICO1": {
+      "main": [
+        [
+          {
+            "node": "Limit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request2": {
+      "main": [
+        [
+          {
+            "node": "Envia mensagem pro responsável1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É AUDIO?1": {
+      "main": [
+        [
+          {
+            "node": "Transcribe a recording1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "IMAGEM?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transcribe a recording1": {
+      "main": [
+        [
+          {
+            "node": "substituir audio por texto1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "substituir audio por texto1": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR HISTÓRICO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request3": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responder ou Finalizar1": {
+      "main": [
+        [
+          {
+            "node": "Responde o Cliente1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Definir Setor1": {
+      "main": [
+        [
+          {
+            "node": "Ler Todas Paginas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Definir Setor1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Busca Status e Memória1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Upload file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload file2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload file1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Upload file3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file2": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR HISTÓRICO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR HISTÓRICO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file1": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR HISTÓRICO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [
+          {
+            "node": "Baixar imagem",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar pdf": {
+      "main": [
+        [
+          {
+            "node": "Extract from File",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract from File": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request pdf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request pdf": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "É AUDIO?1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Baixar pdf",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload file3": {
+      "main": [
+        [
+          {
+            "node": "BUSCAR HISTÓRICO1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Busca Status e Memória1": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responde o Cliente1": {
+      "main": [
+        []
+      ]
+    },
+    "Limit": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Get a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a row": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a row": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Create a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner",
+    "availableInMCP": false,
+    "timeSavedPerExecution": 3,
+    "binaryMode": "separate"
+  },
+  "tags": [
+    "portfolio",
+    "template",
+    "sanitized",
+    "whatsapp",
+    "n8n"
+  ]
+}
