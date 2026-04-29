@@ -17,6 +17,8 @@
 
 Automação de atendimento via WhatsApp com IA, focada em interpretar mensagens, organizar contexto e direcionar o cliente com base em lógica de negócio.
 
+<img width="1169" height="326" alt="image" src="https://github.com/user-attachments/assets/3b58ae21-9903-48fb-9baf-1ba04a5d12ee" />
+
 ---
 
 ## Capabilities
